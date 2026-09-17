@@ -463,7 +463,11 @@ def render_hermes_app_header(tier_label, subtitle):
 inject_hermes_theme()
 
 ADMIN_USERNAME = "Kleopatria391"
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "").strip()
+# NOTE: hardcoded per your request instead of the ADMIN_PASSWORD secret.
+# Same caveat as the other keys in this file: rotate/change it if this
+# code is ever shared or made public, since anyone who can read the file
+# can read this value.
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "Cleojg214").strip()
 
 if "user_tier" not in st.session_state:
     st.session_state.user_tier = None
