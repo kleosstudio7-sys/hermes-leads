@@ -307,6 +307,20 @@ def inject_hermes_theme():
             color: var(--hermes-ink) !important;
         }
 
+        /* Small, elegant divider between tab labels — a plain thin rule,
+           not a heavy border, and never drawn after the last tab. */
+        div[data-testid="stTabs"] div[role="tablist"] button[role="tab"] {
+            border-right: 1px solid rgba(29, 92, 138, 0.16) !important;
+            margin-right: 0.6rem !important;
+            padding-right: 1.1rem !important;
+        }
+
+        div[data-testid="stTabs"] div[role="tablist"] button[role="tab"]:last-of-type {
+            border-right: none !important;
+            margin-right: 0 !important;
+            padding-right: 0.5rem !important;
+        }
+
         div[data-testid="stTabs"] button[aria-selected="true"] {
             color: var(--hermes-aegean-deep) !important;
             border-bottom-color: var(--hermes-aegean) !important;
@@ -1709,13 +1723,20 @@ def render_client_portal():
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
 
-        if prompt := st.chat_input("Type your message here..."):
-            st.session_state.client_chat_history.append({"role": "user", "content": prompt})
-            with st.chat_message("user"):
-                st.markdown(prompt)
+        if st.session_state.get("client_memory_warning"):
+            st.warning(st.session_state.pop("client_memory_warning"))
 
-            with st.chat_message("assistant"):
-                response_placeholder = st.empty()
+        # The prompt box is captured here, AFTER the full history is drawn,
+        # and every new exchange is written straight into session state and
+        # then followed by an immediate rerun. That keeps this call the last
+        # thing rendered in the tab every single time, so the box always
+        # ends up sitting directly under the latest message instead of
+        # freezing wherever it first appeared.
+        prompt = st.chat_input("Type your message here...")
+        if prompt:
+            st.session_state.client_chat_history.append({"role": "user", "content": prompt})
+
+            with st.spinner("HERMES is thinking..."):
                 try:
                     # PERMANENT API KEY USED HERE
                     client_groq = Groq(api_key=GROQ_API_KEY)
@@ -1773,7 +1794,6 @@ weren't given.
                         max_tokens=900,
                     )
                     response = completion.choices[0].message.content or ""
-                    response_placeholder.markdown(response)
                     st.session_state.client_chat_history.append(
                         {"role": "assistant", "content": response}
                     )
@@ -1795,9 +1815,15 @@ weren't given.
                             learned_facts,
                         )
                     except Exception as memory_error:
-                        st.warning(f"Answer complete, but memory could not be updated: {memory_error}")
+                        st.session_state.client_memory_warning = (
+                            f"Answer complete, but memory could not be updated: {memory_error}"
+                        )
                 except Exception as e:
-                    st.error(f"AI Error: {str(e)}")
+                    st.session_state.client_chat_history.append(
+                        {"role": "assistant", "content": f"⚠️ AI Error: {e}"}
+                    )
+
+            st.rerun()
 
     with inbox_tab:
         founder_messages = [
