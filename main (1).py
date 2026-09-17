@@ -396,6 +396,17 @@ def inject_hermes_theme():
             color: var(--hermes-ink-soft);
             margin-top: 0.1rem;
         }
+
+        /* Small, quiet divider — a plain thin line, no gradient or glow.
+           Used above the client-portal tabs so there's a clean break
+           between the welcome text and the tab bar without adding
+           visual noise. */
+        .hermes-thin-divider {
+            height: 1px;
+            background: rgba(29, 92, 138, 0.18);
+            margin: 1rem 0 1.1rem 0;
+            border: none;
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -1679,6 +1690,7 @@ def render_client_portal():
 
     st.markdown(f"### Welcome back, {client_name}! 👋")
     st.caption("I am here to help you reach your goals. How can I assist you today?")
+    st.markdown('<div class="hermes-thin-divider"></div>', unsafe_allow_html=True)
 
     if "client_chat_history" not in st.session_state:
         st.session_state.client_chat_history = []
@@ -1718,9 +1730,19 @@ know this client's business and talk like it.
 
 PERSONALITY
 Warm and human, but with real substance and opinions — not saccharine or
-generic. Skip corporate filler ("I'd be happy to help!"), skip decorative
-emoji, skip restating the question back before answering. Get to the point,
-then add color or encouragement where it's earned, not by default.
+generic. Get to the point, then add color or encouragement where it's
+earned, not by default.
+
+BANNED — never open with, or use, any of these or their close variants:
+"Hey there!", "Hi there!", "How can I help you today?", "I'd be happy to
+help!", "Great question!", "I'm here to assist." These are stock chatbot
+filler and instantly break the illusion that you actually know this
+client. If the client just says hi, respond like someone who already knows
+them and their business would — reference their actual goal or situation
+from the Vault details below instead of asking a generic open-ended
+question.
+
+No decorative emoji. No restating the question back before answering.
 
 LENGTH — NON-NEGOTIABLE
 Match your reply to what was actually asked. A quick question gets a quick
@@ -1747,7 +1769,7 @@ weren't given.
                     completion = client_groq.chat.completions.create(
                         model="openai/gpt-oss-20b",
                         messages=client_messages,
-                        temperature=0.4,
+                        temperature=0.65,
                         max_tokens=900,
                     )
                     response = completion.choices[0].message.content or ""
