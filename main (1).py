@@ -518,9 +518,11 @@ def render_hermes_app_header(tier_label, subtitle):
 def apply_tier_theme(tier):
     """Override the CSS custom properties so Gold/Platinum client tiers get
     their own elegant color palette — the exact same layout and components
-    as Regular, only the colors (plus a visible gold/platinum meander line
-    and, for Platinum, a diamond cluster) change. Called after
-    render_hermes_app_header so these overrides win.
+    as Regular, only the colors change. Deliberately lightweight: this
+    re-injects on every rerun, so it sticks to a handful of variable
+    overrides and a flat background tint rather than stacked gradients and
+    box-shadows repeated across every card, which is what was causing the
+    lag/stutter on the Platinum tier.
     """
     tier = (tier or "regular").lower()
     if tier == "gold":
@@ -533,26 +535,11 @@ def apply_tier_theme(tier):
                 --hermes-aegean-light: #d9b565;
                 --hermes-gold: #f3e6c2;
             }
-            [data-testid="stAppViewContainer"] {
-                background-image:
-                    linear-gradient(120deg, rgba(184, 145, 42, 0.07) 0%, transparent 30%),
-                    linear-gradient(-100deg, rgba(122, 92, 20, 0.06) 0%, transparent 35%),
-                    radial-gradient(circle at 85% 8%, rgba(217, 181, 101, 0.12) 0%, transparent 45%),
-                    radial-gradient(circle at 10% 95%, rgba(184, 145, 42, 0.10) 0%, transparent 40%),
-                    linear-gradient(180deg, #ffffff 0%, #fbf8f1 55%, #f6efdf 100%) !important;
-            }
+            [data-testid="stAppViewContainer"] { background-color: #fbf8f1 !important; }
             div[data-testid="stVerticalBlockBorderWrapper"] {
-                border: 1.5px solid rgba(184, 145, 42, 0.35) !important;
-                box-shadow: 0 2px 10px rgba(122, 92, 20, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.6) inset !important;
+                border-color: rgba(184, 145, 42, 0.35) !important;
             }
-            .hermes-logo-frame {
-                border-width: 3px !important;
-                box-shadow: 0 3px 14px rgba(122, 92, 20, 0.28), 0 0 0 5px rgba(243, 230, 194, 0.55) !important;
-            }
-            div[data-testid="stFormSubmitButton"] button,
-            div.stButton button {
-                box-shadow: 0 3px 10px rgba(122, 92, 20, 0.22), 0 0 0 1px rgba(243, 230, 194, 0.7) inset !important;
-            }
+            .hermes-logo-frame { box-shadow: 0 3px 12px rgba(122, 92, 20, 0.25) !important; }
             </style>
             """,
             unsafe_allow_html=True,
@@ -567,26 +554,11 @@ def apply_tier_theme(tier):
                 --hermes-aegean-light: #aeb9c4;
                 --hermes-gold: #eef2f5;
             }
-            [data-testid="stAppViewContainer"] {
-                background-image:
-                    linear-gradient(120deg, rgba(109, 122, 136, 0.07) 0%, transparent 30%),
-                    linear-gradient(-100deg, rgba(58, 64, 72, 0.06) 0%, transparent 35%),
-                    radial-gradient(circle at 85% 8%, rgba(174, 185, 196, 0.14) 0%, transparent 45%),
-                    radial-gradient(circle at 10% 95%, rgba(109, 122, 136, 0.10) 0%, transparent 40%),
-                    linear-gradient(180deg, #ffffff 0%, #f8fafb 55%, #eef1f4 100%) !important;
-            }
+            [data-testid="stAppViewContainer"] { background-color: #f8fafb !important; }
             div[data-testid="stVerticalBlockBorderWrapper"] {
-                border: 1.5px solid rgba(109, 122, 136, 0.35) !important;
-                box-shadow: 0 2px 10px rgba(58, 64, 72, 0.10), 0 0 0 1px rgba(255, 255, 255, 0.7) inset !important;
+                border-color: rgba(109, 122, 136, 0.35) !important;
             }
-            .hermes-logo-frame {
-                border-width: 3px !important;
-                box-shadow: 0 3px 14px rgba(58, 64, 72, 0.30), 0 0 0 5px rgba(238, 242, 245, 0.7) !important;
-            }
-            div[data-testid="stFormSubmitButton"] button,
-            div.stButton button {
-                box-shadow: 0 3px 10px rgba(58, 64, 72, 0.24), 0 0 0 1px rgba(238, 242, 245, 0.85) inset !important;
-            }
+            .hermes-logo-frame { box-shadow: 0 3px 12px rgba(58, 64, 72, 0.25) !important; }
             </style>
             """,
             unsafe_allow_html=True,
@@ -672,9 +644,11 @@ def render_platinum_gem_accent():
 def scroll_chat_to_bottom():
     """Auto-scroll to a real anchor element placed right after the newest
     chat message, rather than guessing at Streamlit's internal container
-    class names (which change between versions and is why the earlier
-    version wasn't reliably firing). Retries briefly since layout can
-    still be settling when this first runs."""
+    class names. Only called once, right after a new answer lands (see the
+    hermes_scroll_pending flag), not on every rerun — that one-shot flag is
+    what actually fixes the lag: this used to fire on every rerun of the
+    whole app (any widget click anywhere), spinning up a fresh iframe each
+    time."""
     st.markdown('<div id="hermes-chat-bottom-anchor"></div>', unsafe_allow_html=True)
     components.html(
         """
@@ -685,19 +659,11 @@ def scroll_chat_to_bottom():
                 const anchor = doc.getElementById('hermes-chat-bottom-anchor');
                 if (anchor) {
                     anchor.scrollIntoView({behavior: 'instant', block: 'end'});
-                    return true;
                 }
-                return false;
             }
-            if (!doScroll()) {
-                [50, 150, 300, 500, 800].forEach(function(delay) {
-                    setTimeout(doScroll, delay);
-                });
-            } else {
-                [150, 400, 700].forEach(function(delay) {
-                    setTimeout(doScroll, delay);
-                });
-            }
+            doScroll();
+            setTimeout(doScroll, 200);
+            setTimeout(doScroll, 500);
         })();
         </script>
         """,
@@ -1952,7 +1918,7 @@ def render_client_portal():
         for message in st.session_state.client_chat_history:
             with st.chat_message(message["role"], avatar=_chat_avatar(message["role"])):
                 st.markdown(message["content"])
-        if st.session_state.client_chat_history:
+        if st.session_state.pop("hermes_scroll_pending", False):
             scroll_chat_to_bottom()
 
         if st.session_state.get("client_memory_warning"):
@@ -2055,6 +2021,7 @@ weren't given.
                         {"role": "assistant", "content": f"⚠️ AI Error: {e}"}
                     )
 
+            st.session_state.hermes_scroll_pending = True
             st.rerun()
 
     with inbox_tab:
@@ -2556,6 +2523,7 @@ Current operator question:
                     ]
                 )
                 st.session_state.diagnostic_response = response
+                st.session_state.hermes_founder_scroll_pending = True
 
                 fallback_summary = response.strip().splitlines()[0][:160] if response.strip() else ""
                 try:
@@ -2618,7 +2586,8 @@ Return valid JSON only in this exact shape:
         for message in st.session_state.chat_messages:
             with st.chat_message(message["role"], avatar=_chat_avatar(message["role"])):
                 st.markdown(message["content"])
-        scroll_chat_to_bottom()
+        if st.session_state.pop("hermes_founder_scroll_pending", False):
+            scroll_chat_to_bottom()
 
 
 with client_vault_tab:
