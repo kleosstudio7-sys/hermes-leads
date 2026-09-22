@@ -1918,8 +1918,6 @@ def render_client_portal():
         for message in st.session_state.client_chat_history:
             with st.chat_message(message["role"], avatar=_chat_avatar(message["role"])):
                 st.markdown(message["content"])
-        if st.session_state.pop("hermes_scroll_pending", False):
-            scroll_chat_to_bottom()
 
         if st.session_state.get("client_memory_warning"):
             st.warning(st.session_state.pop("client_memory_warning"))
@@ -2409,9 +2407,24 @@ with diagnostic_tab:
         )
 
     st.divider()
+
+    # Conversation history is drawn BEFORE the input box, and the input is
+    # captured after it — same order as the Client Tier chat, and for the
+    # same reason: whatever is rendered last in the tab is what ends up
+    # sitting at the bottom, directly under the latest message, instead of
+    # staying pinned wherever it first appeared.
+    if st.session_state.chat_messages:
+        st.subheader("Conversation")
+        for message in st.session_state.chat_messages:
+            with st.chat_message(message["role"], avatar=_chat_avatar(message["role"])):
+                st.markdown(message["content"])
+        if st.session_state.pop("hermes_founder_scroll_pending", False):
+            scroll_chat_to_bottom()
+
     query = st.chat_input("Ask HERMES a business question...", key="diagnostic_chat_input")
 
     if query:
+        answered = False
         with st.spinner("Thinking with your session context..."):
             try:
                 # PERMANENT API KEY USED HERE
@@ -2523,7 +2536,7 @@ Current operator question:
                     ]
                 )
                 st.session_state.diagnostic_response = response
-                st.session_state.hermes_founder_scroll_pending = True
+                answered = True
 
                 fallback_summary = response.strip().splitlines()[0][:160] if response.strip() else ""
                 try:
@@ -2581,13 +2594,14 @@ Return valid JSON only in this exact shape:
             except Exception as error:
                 st.error(f"System Error: {error}")
 
-    if st.session_state.chat_messages:
-        st.subheader("Conversation")
-        for message in st.session_state.chat_messages:
-            with st.chat_message(message["role"], avatar=_chat_avatar(message["role"])):
-                st.markdown(message["content"])
-        if st.session_state.pop("hermes_founder_scroll_pending", False):
-            scroll_chat_to_bottom()
+        if answered:
+            # Same one-shot pattern as the Client Tier chat: rerun once so
+            # the fresh history (now including this answer) renders above
+            # the input box on the next pass, then scroll to it — instead
+            # of leaving this answer stuck below an input box that was
+            # already drawn earlier in the page.
+            st.session_state.hermes_founder_scroll_pending = True
+            st.rerun()
 
 
 with client_vault_tab:
