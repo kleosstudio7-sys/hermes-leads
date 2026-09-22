@@ -518,8 +518,9 @@ def render_hermes_app_header(tier_label, subtitle):
 def apply_tier_theme(tier):
     """Override the CSS custom properties so Gold/Platinum client tiers get
     their own elegant color palette — the exact same layout and components
-    as Regular, only the colors (and, for Platinum, a small diamond accent)
-    change. Called after render_hermes_app_header so these overrides win.
+    as Regular, only the colors (plus a visible gold/platinum meander line
+    and, for Platinum, a diamond cluster) change. Called after
+    render_hermes_app_header so these overrides win.
     """
     tier = (tier or "regular").lower()
     if tier == "gold":
@@ -530,15 +531,27 @@ def apply_tier_theme(tier):
                 --hermes-aegean: #b8912a;
                 --hermes-aegean-deep: #7a5c14;
                 --hermes-aegean-light: #d9b565;
-                --hermes-gold: #eadfc4;
+                --hermes-gold: #f3e6c2;
             }
             [data-testid="stAppViewContainer"] {
                 background-image:
-                    linear-gradient(120deg, rgba(184, 145, 42, 0.06) 0%, transparent 30%),
-                    linear-gradient(-100deg, rgba(122, 92, 20, 0.05) 0%, transparent 35%),
-                    radial-gradient(circle at 85% 8%, rgba(217, 181, 101, 0.10) 0%, transparent 45%),
-                    radial-gradient(circle at 10% 95%, rgba(184, 145, 42, 0.08) 0%, transparent 40%),
+                    linear-gradient(120deg, rgba(184, 145, 42, 0.07) 0%, transparent 30%),
+                    linear-gradient(-100deg, rgba(122, 92, 20, 0.06) 0%, transparent 35%),
+                    radial-gradient(circle at 85% 8%, rgba(217, 181, 101, 0.12) 0%, transparent 45%),
+                    radial-gradient(circle at 10% 95%, rgba(184, 145, 42, 0.10) 0%, transparent 40%),
                     linear-gradient(180deg, #ffffff 0%, #fbf8f1 55%, #f6efdf 100%) !important;
+            }
+            div[data-testid="stVerticalBlockBorderWrapper"] {
+                border: 1.5px solid rgba(184, 145, 42, 0.35) !important;
+                box-shadow: 0 2px 10px rgba(122, 92, 20, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.6) inset !important;
+            }
+            .hermes-logo-frame {
+                border-width: 3px !important;
+                box-shadow: 0 3px 14px rgba(122, 92, 20, 0.28), 0 0 0 5px rgba(243, 230, 194, 0.55) !important;
+            }
+            div[data-testid="stFormSubmitButton"] button,
+            div.stButton button {
+                box-shadow: 0 3px 10px rgba(122, 92, 20, 0.22), 0 0 0 1px rgba(243, 230, 194, 0.7) inset !important;
             }
             </style>
             """,
@@ -549,18 +562,30 @@ def apply_tier_theme(tier):
             """
             <style>
             :root {
-                --hermes-aegean: #74808c;
-                --hermes-aegean-deep: #40454e;
-                --hermes-aegean-light: #a7b0b8;
-                --hermes-gold: #d7dee3;
+                --hermes-aegean: #6d7a88;
+                --hermes-aegean-deep: #3a4048;
+                --hermes-aegean-light: #aeb9c4;
+                --hermes-gold: #eef2f5;
             }
             [data-testid="stAppViewContainer"] {
                 background-image:
-                    linear-gradient(120deg, rgba(116, 128, 140, 0.06) 0%, transparent 30%),
-                    linear-gradient(-100deg, rgba(64, 69, 78, 0.05) 0%, transparent 35%),
-                    radial-gradient(circle at 85% 8%, rgba(167, 176, 184, 0.10) 0%, transparent 45%),
-                    radial-gradient(circle at 10% 95%, rgba(116, 128, 140, 0.08) 0%, transparent 40%),
-                    linear-gradient(180deg, #ffffff 0%, #f7f8f9 55%, #eef0f2 100%) !important;
+                    linear-gradient(120deg, rgba(109, 122, 136, 0.07) 0%, transparent 30%),
+                    linear-gradient(-100deg, rgba(58, 64, 72, 0.06) 0%, transparent 35%),
+                    radial-gradient(circle at 85% 8%, rgba(174, 185, 196, 0.14) 0%, transparent 45%),
+                    radial-gradient(circle at 10% 95%, rgba(109, 122, 136, 0.10) 0%, transparent 40%),
+                    linear-gradient(180deg, #ffffff 0%, #f8fafb 55%, #eef1f4 100%) !important;
+            }
+            div[data-testid="stVerticalBlockBorderWrapper"] {
+                border: 1.5px solid rgba(109, 122, 136, 0.35) !important;
+                box-shadow: 0 2px 10px rgba(58, 64, 72, 0.10), 0 0 0 1px rgba(255, 255, 255, 0.7) inset !important;
+            }
+            .hermes-logo-frame {
+                border-width: 3px !important;
+                box-shadow: 0 3px 14px rgba(58, 64, 72, 0.30), 0 0 0 5px rgba(238, 242, 245, 0.7) !important;
+            }
+            div[data-testid="stFormSubmitButton"] button,
+            div.stButton button {
+                box-shadow: 0 3px 10px rgba(58, 64, 72, 0.24), 0 0 0 1px rgba(238, 242, 245, 0.85) inset !important;
             }
             </style>
             """,
@@ -570,21 +595,59 @@ def apply_tier_theme(tier):
     # inject_hermes_theme() — nothing to override.
 
 
+def render_tier_meander(tier):
+    """A visible gold- or platinum-colored Greek-key line, echoing the
+    login screen's own meander motif, so each tier reads as a proper
+    variation on the house style rather than a plain recolor."""
+    tier = (tier or "regular").lower()
+    if tier == "gold":
+        line, alt = "#b8912a", "#f3e6c2"
+    elif tier == "platinum":
+        line, alt = "#6d7a88", "#eef2f5"
+    else:
+        return
+    st.markdown(
+        f"""
+        <div style="
+            height: 12px;
+            margin: 0.1rem auto 0.7rem auto;
+            max-width: 360px;
+            opacity: 0.9;
+            background-image: repeating-linear-gradient(
+                90deg,
+                {line} 0px, {line} 6px,
+                transparent 6px, transparent 9px,
+                {alt} 9px, {alt} 15px,
+                transparent 15px, transparent 24px
+            );
+        "></div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_tier_diamond_accent():
-    """A small, quiet rotated-square 'diamond' cluster — the one Platinum-
-    only flourish, kept understated rather than showy."""
+    """A brighter, more noticeable Platinum diamond cluster — five facets
+    in a graduated fan with a soft glow, closer to a jeweled accent than a
+    flat grey shape, while staying a single restrained line."""
     st.markdown(
         """
-        <div style="display:flex; justify-content:center; align-items:center; gap:0.5rem; margin: -0.3rem 0 0.6rem 0;">
-            <span style="width:7px;height:7px;background:linear-gradient(135deg,#c9d3da,#8b95a0);
+        <div style="display:flex; justify-content:center; align-items:flex-end; gap:0.45rem; margin: -0.2rem 0 0.8rem 0;">
+            <span style="width:6px;height:6px;background:linear-gradient(135deg,#ffffff,#c3ccd4 55%,#8b95a0);
                 transform:rotate(45deg);display:inline-block;border-radius:1px;
-                box-shadow:0 0 4px rgba(140,150,160,0.5);"></span>
-            <span style="width:11px;height:11px;background:linear-gradient(135deg,#e6eaed,#9aa3ad);
+                box-shadow:0 0 5px rgba(180,190,199,0.7);"></span>
+            <span style="width:10px;height:10px;background:linear-gradient(135deg,#ffffff,#c9d3da 50%,#8b95a0);
                 transform:rotate(45deg);display:inline-block;border-radius:1px;
-                box-shadow:0 0 6px rgba(140,150,160,0.55);"></span>
-            <span style="width:7px;height:7px;background:linear-gradient(135deg,#c9d3da,#8b95a0);
+                box-shadow:0 0 8px rgba(180,190,199,0.8);"></span>
+            <span style="width:16px;height:16px;background:linear-gradient(135deg,#ffffff,#d4dde3 45%,#7c8792);
+                transform:rotate(45deg);display:inline-block;border-radius:2px;
+                box-shadow:0 0 12px rgba(180,190,199,0.9), 0 0 2px #ffffff inset;"></span>
+            <span style="width:10px;height:10px;background:linear-gradient(135deg,#ffffff,#c9d3da 50%,#8b95a0);
                 transform:rotate(45deg);display:inline-block;border-radius:1px;
-                box-shadow:0 0 4px rgba(140,150,160,0.5);"></span>
+                box-shadow:0 0 8px rgba(180,190,199,0.8);"></span>
+            <span style="width:6px;height:6px;background:linear-gradient(135deg,#ffffff,#c3ccd4 55%,#8b95a0);
+                transform:rotate(45deg);display:inline-block;border-radius:1px;
+                box-shadow:0 0 5px rgba(180,190,199,0.7);"></span>
         </div>
         """,
         unsafe_allow_html=True,
