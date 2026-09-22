@@ -18,8 +18,8 @@ from groq import Groq
 # appear in a public place (chat logs, shared files, repos, etc.).
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 if not GROQ_API_KEY:
-st.error("GROQ_API_KEY is not set. Add it as an environment variable or Streamlit secret.")
-st.stop()
+    st.error("GROQ_API_KEY is not set. Add it as an environment variable or Streamlit secret.")
+    st.stop()
 
 # --- Separate security passcode for the founder-only Client Tiers panel.
 # This is intentionally NOT the admin password and NOT any client password. ---
