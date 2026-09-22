@@ -12,20 +12,14 @@ import streamlit as st
 import streamlit.components.v1 as components
 from groq import Groq
 
-# --- PERMANENT GROQ API KEY ---
-# NOTE: this key has been pasted into this chat conversation multiple times.
-# Groq (like most API providers) scans for leaked keys and auto-revokes them
-# once they show up somewhere public like a chat log — that is almost
-# certainly why you're seeing "Invalid API Key" now, not anything wrong with
-# the code. Generate a fresh key from your Groq dashboard and either:
-#   (a) set it as a GROQ_API_KEY secret/environment variable on your host
-#       (preferred — it will never need to be pasted into a file again), or
-#   (b) paste the new key directly into the string below.
-# The line below now checks for a GROQ_API_KEY environment variable first
-# and only falls back to the hardcoded (currently dead) key if none is set.
-GROQ_API_KEY = os.getenv(
-    "GROQ_API_KEY", "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"
-).strip()
+# --- GROQ API KEY ---
+# Set GROQ_API_KEY as an environment variable / Streamlit secret on your
+# host. Do not hardcode a key here — Groq auto-revokes keys that ever
+# appear in a public place (chat logs, shared files, repos, etc.).
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
+if not GROQ_API_KEY:
+st.error("GROQ_API_KEY is not set. Add it as an environment variable or Streamlit secret.")
+st.stop()
 
 # --- Separate security passcode for the founder-only Client Tiers panel.
 # This is intentionally NOT the admin password and NOT any client password. ---
