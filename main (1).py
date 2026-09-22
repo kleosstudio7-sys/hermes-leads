@@ -626,90 +626,78 @@ def render_tier_meander(tier):
     )
 
 
-def render_tier_diamond_accent():
-    """A richer Platinum diamond cluster — seven facets in a graduated fan,
-    alternating bright platinum and warm gold, so it reads as the tier
-    above Gold (both metals) rather than a single flat grey shape."""
+def render_platinum_gem_accent():
+    """A single faceted gem rendered in real SVG line-art, pure platinum
+    and slate-silver tones only — no gold, no white stripes, nothing
+    emoji-like. This replaces the earlier colored-square cluster with
+    something closer to an actual jeweler's mark: a brilliant-cut stone
+    with a lit table and shaded pavilion, flanked by a slim tapered line
+    so it reads as one quiet, expensive accent rather than clutter."""
     st.markdown(
         """
-        <div style="display:flex; justify-content:center; align-items:flex-end; gap:0.4rem; margin: -0.1rem 0 0.5rem 0;">
-            <span style="width:6px;height:6px;background:linear-gradient(135deg,#ffffff,#e3c987 55%,#b8912a);
-                transform:rotate(45deg);display:inline-block;border-radius:1px;
-                box-shadow:0 0 5px rgba(184,145,42,0.6);"></span>
-            <span style="width:9px;height:9px;background:linear-gradient(135deg,#ffffff,#c9d3da 50%,#8b95a0);
-                transform:rotate(45deg);display:inline-block;border-radius:1px;
-                box-shadow:0 0 7px rgba(139,149,160,0.75);"></span>
-            <span style="width:12px;height:12px;background:linear-gradient(135deg,#ffffff,#e3c987 50%,#b8912a);
-                transform:rotate(45deg);display:inline-block;border-radius:1px;
-                box-shadow:0 0 9px rgba(184,145,42,0.7);"></span>
-            <span style="width:18px;height:18px;background:linear-gradient(135deg,#ffffff,#dfe6ea 35%,#c9d3da 55%,#8b95a0);
-                transform:rotate(45deg);display:inline-block;border-radius:2px;
-                box-shadow:0 0 16px rgba(139,149,160,0.9), 0 0 4px #ffffff inset;"></span>
-            <span style="width:12px;height:12px;background:linear-gradient(135deg,#ffffff,#e3c987 50%,#b8912a);
-                transform:rotate(45deg);display:inline-block;border-radius:1px;
-                box-shadow:0 0 9px rgba(184,145,42,0.7);"></span>
-            <span style="width:9px;height:9px;background:linear-gradient(135deg,#ffffff,#c9d3da 50%,#8b95a0);
-                transform:rotate(45deg);display:inline-block;border-radius:1px;
-                box-shadow:0 0 7px rgba(139,149,160,0.75);"></span>
-            <span style="width:6px;height:6px;background:linear-gradient(135deg,#ffffff,#e3c987 55%,#b8912a);
-                transform:rotate(45deg);display:inline-block;border-radius:1px;
-                box-shadow:0 0 5px rgba(184,145,42,0.6);"></span>
+        <div style="display:flex; justify-content:center; align-items:center; gap:0.9rem; margin: -0.1rem 0 0.9rem 0;">
+            <div style="flex:0 0 auto; width:64px; height:1px; background:linear-gradient(90deg, transparent, rgba(93,104,115,0.55));"></div>
+            <svg width="40" height="40" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="platCrown" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#ffffff"/>
+                        <stop offset="55%" stop-color="#dbe1e6"/>
+                        <stop offset="100%" stop-color="#aab4bd"/>
+                    </linearGradient>
+                    <linearGradient id="platPavilion" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stop-color="#c4ccd3"/>
+                        <stop offset="100%" stop-color="#5d6873"/>
+                    </linearGradient>
+                    <linearGradient id="platTable" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="#ffffff"/>
+                        <stop offset="100%" stop-color="#e4e9ec"/>
+                    </linearGradient>
+                </defs>
+                <polygon points="10,26 22,12 42,12 54,26" fill="url(#platCrown)" stroke="#7c8792" stroke-width="1.1"/>
+                <polygon points="22,12 42,12 32,20" fill="url(#platTable)" stroke="#93a0aa" stroke-width="0.8"/>
+                <polygon points="10,26 54,26 32,58" fill="url(#platPavilion)" stroke="#4a545e" stroke-width="1.3"/>
+                <line x1="32" y1="20" x2="32" y2="58" stroke="#8b96a0" stroke-width="0.7" opacity="0.8"/>
+                <line x1="22" y1="12" x2="10" y2="26" stroke="#9aa5ae" stroke-width="0.6" opacity="0.7"/>
+                <line x1="42" y1="12" x2="54" y2="26" stroke="#9aa5ae" stroke-width="0.6" opacity="0.7"/>
+                <line x1="10" y1="26" x2="32" y2="58" stroke="#7c8792" stroke-width="0.6" opacity="0.6"/>
+                <line x1="54" y1="26" x2="32" y2="58" stroke="#7c8792" stroke-width="0.6" opacity="0.6"/>
+            </svg>
+            <div style="flex:0 0 auto; width:64px; height:1px; background:linear-gradient(90deg, rgba(93,104,115,0.55), transparent);"></div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
 
-def render_platinum_stripe_bar():
-    """A diagonal white-and-gold striped accent bar under the diamonds —
-    Platinum pairs both metals rather than sitting in plain grey, which is
-    what actually reads as the more expensive tier."""
-    st.markdown(
-        """
-        <div style="
-            height: 10px;
-            margin: 0 auto 0.9rem auto;
-            max-width: 340px;
-            border-radius: 3px;
-            opacity: 0.95;
-            background: repeating-linear-gradient(
-                45deg,
-                #ffffff 0px, #ffffff 9px,
-                #cda43a 9px, #cda43a 18px
-            );
-            box-shadow: 0 2px 8px rgba(122, 92, 20, 0.18), 0 0 0 1px rgba(139,149,160,0.25);
-        "></div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
 def scroll_chat_to_bottom():
-    """Best-effort auto-scroll so the page follows the newest chat message
-    — the way ChatGPT-style interfaces do — instead of leaving the reader
-    stranded above the latest reply. Retries for ~800ms since the chat
-    content can still be laying out when this first runs."""
+    """Auto-scroll to a real anchor element placed right after the newest
+    chat message, rather than guessing at Streamlit's internal container
+    class names (which change between versions and is why the earlier
+    version wasn't reliably firing). Retries briefly since layout can
+    still be settling when this first runs."""
+    st.markdown('<div id="hermes-chat-bottom-anchor"></div>', unsafe_allow_html=True)
     components.html(
         """
         <script>
         (function() {
             function doScroll() {
                 const doc = window.parent.document;
-                const candidates = [
-                    doc.querySelector('section.main'),
-                    doc.querySelector('[data-testid="stAppViewContainer"]'),
-                    doc.querySelector('.main'),
-                ].filter(Boolean);
-                for (const el of candidates) {
-                    el.scrollTop = el.scrollHeight;
+                const anchor = doc.getElementById('hermes-chat-bottom-anchor');
+                if (anchor) {
+                    anchor.scrollIntoView({behavior: 'instant', block: 'end'});
+                    return true;
                 }
-                doc.documentElement.scrollTop = doc.documentElement.scrollHeight;
-                doc.body.scrollTop = doc.body.scrollHeight;
+                return false;
             }
-            doScroll();
-            [100, 250, 400, 600, 800].forEach(function(delay) {
-                setTimeout(doScroll, delay);
-            });
+            if (!doScroll()) {
+                [50, 150, 300, 500, 800].forEach(function(delay) {
+                    setTimeout(doScroll, delay);
+                });
+            } else {
+                [150, 400, 700].forEach(function(delay) {
+                    setTimeout(doScroll, delay);
+                });
+            }
         })();
         </script>
         """,
@@ -1937,8 +1925,7 @@ def render_client_portal():
     if effective_tier in ("gold", "platinum"):
         render_tier_meander(effective_tier)
     if effective_tier == "platinum":
-        render_tier_diamond_accent()
-        render_platinum_stripe_bar()
+        render_platinum_gem_accent()
     if is_founder_override:
         st.info("Founder View: you are previewing the Client Tier.")
     elif not client_record:
