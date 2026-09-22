@@ -12,14 +12,20 @@ import streamlit as st
 import streamlit.components.v1 as components
 from groq import Groq
 
-# --- GROQ API KEY ---
-# Set GROQ_API_KEY as an environment variable / Streamlit secret on your
-# host. Do not hardcode a key here — Groq auto-revokes keys that ever
-# appear in a public place (chat logs, shared files, repos, etc.).
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
-if not GROQ_API_KEY:
-    st.error("GROQ_API_KEY is not set. Add it as an environment variable or Streamlit secret.")
-    st.stop()
+# --- PERMANENT GROQ API KEY ---
+# NOTE: this key has been pasted into this chat conversation multiple times.
+# Groq (like most API providers) scans for leaked keys and auto-revokes them
+# once they show up somewhere public like a chat log — that is almost
+# certainly why you're seeing "Invalid API Key" now, not anything wrong with
+# the code. Generate a fresh key from your Groq dashboard and either:
+#   (a) set it as a GROQ_API_KEY secret/environment variable on your host
+#       (preferred — it will never need to be pasted into a file again), or
+#   (b) paste the new key directly into the string below.
+# The line below now checks for a GROQ_API_KEY environment variable first
+# and only falls back to the hardcoded (currently dead) key if none is set.
+GROQ_API_KEY = os.getenv(
+    "GROQ_API_KEY", "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"
+).strip()
 
 # --- Separate security passcode for the founder-only Client Tiers panel.
 # This is intentionally NOT the admin password and NOT any client password. ---
@@ -621,28 +627,58 @@ def render_tier_meander(tier):
 
 
 def render_tier_diamond_accent():
-    """A brighter, more noticeable Platinum diamond cluster — five facets
-    in a graduated fan with a soft glow, closer to a jeweled accent than a
-    flat grey shape, while staying a single restrained line."""
+    """A richer Platinum diamond cluster — seven facets in a graduated fan,
+    alternating bright platinum and warm gold, so it reads as the tier
+    above Gold (both metals) rather than a single flat grey shape."""
     st.markdown(
         """
-        <div style="display:flex; justify-content:center; align-items:flex-end; gap:0.45rem; margin: -0.2rem 0 0.8rem 0;">
-            <span style="width:6px;height:6px;background:linear-gradient(135deg,#ffffff,#c3ccd4 55%,#8b95a0);
+        <div style="display:flex; justify-content:center; align-items:flex-end; gap:0.4rem; margin: -0.1rem 0 0.5rem 0;">
+            <span style="width:6px;height:6px;background:linear-gradient(135deg,#ffffff,#e3c987 55%,#b8912a);
                 transform:rotate(45deg);display:inline-block;border-radius:1px;
-                box-shadow:0 0 5px rgba(180,190,199,0.7);"></span>
-            <span style="width:10px;height:10px;background:linear-gradient(135deg,#ffffff,#c9d3da 50%,#8b95a0);
+                box-shadow:0 0 5px rgba(184,145,42,0.6);"></span>
+            <span style="width:9px;height:9px;background:linear-gradient(135deg,#ffffff,#c9d3da 50%,#8b95a0);
                 transform:rotate(45deg);display:inline-block;border-radius:1px;
-                box-shadow:0 0 8px rgba(180,190,199,0.8);"></span>
-            <span style="width:16px;height:16px;background:linear-gradient(135deg,#ffffff,#d4dde3 45%,#7c8792);
+                box-shadow:0 0 7px rgba(139,149,160,0.75);"></span>
+            <span style="width:12px;height:12px;background:linear-gradient(135deg,#ffffff,#e3c987 50%,#b8912a);
+                transform:rotate(45deg);display:inline-block;border-radius:1px;
+                box-shadow:0 0 9px rgba(184,145,42,0.7);"></span>
+            <span style="width:18px;height:18px;background:linear-gradient(135deg,#ffffff,#dfe6ea 35%,#c9d3da 55%,#8b95a0);
                 transform:rotate(45deg);display:inline-block;border-radius:2px;
-                box-shadow:0 0 12px rgba(180,190,199,0.9), 0 0 2px #ffffff inset;"></span>
-            <span style="width:10px;height:10px;background:linear-gradient(135deg,#ffffff,#c9d3da 50%,#8b95a0);
+                box-shadow:0 0 16px rgba(139,149,160,0.9), 0 0 4px #ffffff inset;"></span>
+            <span style="width:12px;height:12px;background:linear-gradient(135deg,#ffffff,#e3c987 50%,#b8912a);
                 transform:rotate(45deg);display:inline-block;border-radius:1px;
-                box-shadow:0 0 8px rgba(180,190,199,0.8);"></span>
-            <span style="width:6px;height:6px;background:linear-gradient(135deg,#ffffff,#c3ccd4 55%,#8b95a0);
+                box-shadow:0 0 9px rgba(184,145,42,0.7);"></span>
+            <span style="width:9px;height:9px;background:linear-gradient(135deg,#ffffff,#c9d3da 50%,#8b95a0);
                 transform:rotate(45deg);display:inline-block;border-radius:1px;
-                box-shadow:0 0 5px rgba(180,190,199,0.7);"></span>
+                box-shadow:0 0 7px rgba(139,149,160,0.75);"></span>
+            <span style="width:6px;height:6px;background:linear-gradient(135deg,#ffffff,#e3c987 55%,#b8912a);
+                transform:rotate(45deg);display:inline-block;border-radius:1px;
+                box-shadow:0 0 5px rgba(184,145,42,0.6);"></span>
         </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_platinum_stripe_bar():
+    """A diagonal white-and-gold striped accent bar under the diamonds —
+    Platinum pairs both metals rather than sitting in plain grey, which is
+    what actually reads as the more expensive tier."""
+    st.markdown(
+        """
+        <div style="
+            height: 10px;
+            margin: 0 auto 0.9rem auto;
+            max-width: 340px;
+            border-radius: 3px;
+            opacity: 0.95;
+            background: repeating-linear-gradient(
+                45deg,
+                #ffffff 0px, #ffffff 9px,
+                #cda43a 9px, #cda43a 18px
+            );
+            box-shadow: 0 2px 8px rgba(122, 92, 20, 0.18), 0 0 0 1px rgba(139,149,160,0.25);
+        "></div>
         """,
         unsafe_allow_html=True,
     )
@@ -651,22 +687,29 @@ def render_tier_diamond_accent():
 def scroll_chat_to_bottom():
     """Best-effort auto-scroll so the page follows the newest chat message
     — the way ChatGPT-style interfaces do — instead of leaving the reader
-    stranded above the latest reply. Called after every chat render."""
+    stranded above the latest reply. Retries for ~800ms since the chat
+    content can still be laying out when this first runs."""
     components.html(
         """
         <script>
         (function() {
-            const doc = window.parent.document;
-            const candidates = [
-                doc.querySelector('section.main'),
-                doc.querySelector('[data-testid="stAppViewContainer"]'),
-                doc.querySelector('.main'),
-            ].filter(Boolean);
-            for (const el of candidates) {
-                el.scrollTop = el.scrollHeight;
+            function doScroll() {
+                const doc = window.parent.document;
+                const candidates = [
+                    doc.querySelector('section.main'),
+                    doc.querySelector('[data-testid="stAppViewContainer"]'),
+                    doc.querySelector('.main'),
+                ].filter(Boolean);
+                for (const el of candidates) {
+                    el.scrollTop = el.scrollHeight;
+                }
+                doc.documentElement.scrollTop = doc.documentElement.scrollHeight;
+                doc.body.scrollTop = doc.body.scrollHeight;
             }
-            doc.documentElement.scrollTop = doc.documentElement.scrollHeight;
-            doc.body.scrollTop = doc.body.scrollHeight;
+            doScroll();
+            [100, 250, 400, 600, 800].forEach(function(delay) {
+                setTimeout(doScroll, delay);
+            });
         })();
         </script>
         """,
@@ -1882,12 +1925,20 @@ def render_client_portal():
     )
     apply_tier_theme(effective_tier)
 
+    tier_header_label = {
+        "gold": "Gold Tier",
+        "platinum": "Platinum Tier",
+    }.get(effective_tier, "Client Tier")
+
     render_hermes_app_header(
-        "Client Tier",
+        tier_header_label,
         f"Welcome back, signed in as {username or 'Client'}",
     )
+    if effective_tier in ("gold", "platinum"):
+        render_tier_meander(effective_tier)
     if effective_tier == "platinum":
         render_tier_diamond_accent()
+        render_platinum_stripe_bar()
     if is_founder_override:
         st.info("Founder View: you are previewing the Client Tier.")
     elif not client_record:
