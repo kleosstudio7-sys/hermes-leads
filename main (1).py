@@ -9,13 +9,23 @@ from pathlib import Path
 
 import requests
 import streamlit as st
+import streamlit.components.v1 as components
 from groq import Groq
 
 # --- PERMANENT GROQ API KEY ---
-# NOTE: Rotate this key in your Groq dashboard since it has now been shared
-# in a chat conversation. Prefer storing secrets as environment variables
-# instead of hardcoding them in source files.
-GROQ_API_KEY = "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"
+# NOTE: this key has been pasted into this chat conversation multiple times.
+# Groq (like most API providers) scans for leaked keys and auto-revokes them
+# once they show up somewhere public like a chat log — that is almost
+# certainly why you're seeing "Invalid API Key" now, not anything wrong with
+# the code. Generate a fresh key from your Groq dashboard and either:
+#   (a) set it as a GROQ_API_KEY secret/environment variable on your host
+#       (preferred — it will never need to be pasted into a file again), or
+#   (b) paste the new key directly into the string below.
+# The line below now checks for a GROQ_API_KEY environment variable first
+# and only falls back to the hardcoded (currently dead) key if none is set.
+GROQ_API_KEY = os.getenv(
+    "GROQ_API_KEY", "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"
+).strip()
 
 # --- Separate security passcode for the founder-only Client Tiers panel.
 # This is intentionally NOT the admin password and NOT any client password. ---
@@ -502,6 +512,108 @@ def render_hermes_app_header(tier_label, subtitle):
         <hr class="hermes-divider" />
         """,
         unsafe_allow_html=True,
+    )
+
+
+def apply_tier_theme(tier):
+    """Override the CSS custom properties so Gold/Platinum client tiers get
+    their own elegant color palette — the exact same layout and components
+    as Regular, only the colors (and, for Platinum, a small diamond accent)
+    change. Called after render_hermes_app_header so these overrides win.
+    """
+    tier = (tier or "regular").lower()
+    if tier == "gold":
+        st.markdown(
+            """
+            <style>
+            :root {
+                --hermes-aegean: #b8912a;
+                --hermes-aegean-deep: #7a5c14;
+                --hermes-aegean-light: #d9b565;
+                --hermes-gold: #eadfc4;
+            }
+            [data-testid="stAppViewContainer"] {
+                background-image:
+                    linear-gradient(120deg, rgba(184, 145, 42, 0.06) 0%, transparent 30%),
+                    linear-gradient(-100deg, rgba(122, 92, 20, 0.05) 0%, transparent 35%),
+                    radial-gradient(circle at 85% 8%, rgba(217, 181, 101, 0.10) 0%, transparent 45%),
+                    radial-gradient(circle at 10% 95%, rgba(184, 145, 42, 0.08) 0%, transparent 40%),
+                    linear-gradient(180deg, #ffffff 0%, #fbf8f1 55%, #f6efdf 100%) !important;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+    elif tier == "platinum":
+        st.markdown(
+            """
+            <style>
+            :root {
+                --hermes-aegean: #74808c;
+                --hermes-aegean-deep: #40454e;
+                --hermes-aegean-light: #a7b0b8;
+                --hermes-gold: #d7dee3;
+            }
+            [data-testid="stAppViewContainer"] {
+                background-image:
+                    linear-gradient(120deg, rgba(116, 128, 140, 0.06) 0%, transparent 30%),
+                    linear-gradient(-100deg, rgba(64, 69, 78, 0.05) 0%, transparent 35%),
+                    radial-gradient(circle at 85% 8%, rgba(167, 176, 184, 0.10) 0%, transparent 45%),
+                    radial-gradient(circle at 10% 95%, rgba(116, 128, 140, 0.08) 0%, transparent 40%),
+                    linear-gradient(180deg, #ffffff 0%, #f7f8f9 55%, #eef0f2 100%) !important;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+    # "regular" keeps the base Aegean/gold theme already injected by
+    # inject_hermes_theme() — nothing to override.
+
+
+def render_tier_diamond_accent():
+    """A small, quiet rotated-square 'diamond' cluster — the one Platinum-
+    only flourish, kept understated rather than showy."""
+    st.markdown(
+        """
+        <div style="display:flex; justify-content:center; align-items:center; gap:0.5rem; margin: -0.3rem 0 0.6rem 0;">
+            <span style="width:7px;height:7px;background:linear-gradient(135deg,#c9d3da,#8b95a0);
+                transform:rotate(45deg);display:inline-block;border-radius:1px;
+                box-shadow:0 0 4px rgba(140,150,160,0.5);"></span>
+            <span style="width:11px;height:11px;background:linear-gradient(135deg,#e6eaed,#9aa3ad);
+                transform:rotate(45deg);display:inline-block;border-radius:1px;
+                box-shadow:0 0 6px rgba(140,150,160,0.55);"></span>
+            <span style="width:7px;height:7px;background:linear-gradient(135deg,#c9d3da,#8b95a0);
+                transform:rotate(45deg);display:inline-block;border-radius:1px;
+                box-shadow:0 0 4px rgba(140,150,160,0.5);"></span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def scroll_chat_to_bottom():
+    """Best-effort auto-scroll so the page follows the newest chat message
+    — the way ChatGPT-style interfaces do — instead of leaving the reader
+    stranded above the latest reply. Called after every chat render."""
+    components.html(
+        """
+        <script>
+        (function() {
+            const doc = window.parent.document;
+            const candidates = [
+                doc.querySelector('section.main'),
+                doc.querySelector('[data-testid="stAppViewContainer"]'),
+                doc.querySelector('.main'),
+            ].filter(Boolean);
+            for (const el of candidates) {
+                el.scrollTop = el.scrollHeight;
+            }
+            doc.documentElement.scrollTop = doc.documentElement.scrollHeight;
+            doc.body.scrollTop = doc.body.scrollHeight;
+        })();
+        </script>
+        """,
+        height=0,
     )
 
 
@@ -1711,11 +1823,14 @@ def render_client_portal():
         if is_founder_override
         else get_client_tier(client_record)
     )
+    apply_tier_theme(effective_tier)
 
     render_hermes_app_header(
         "Client Tier",
         f"Welcome back, signed in as {username or 'Client'}",
     )
+    if effective_tier == "platinum":
+        render_tier_diamond_accent()
     if is_founder_override:
         st.info("Founder View: you are previewing the Client Tier.")
     elif not client_record:
@@ -1742,6 +1857,8 @@ def render_client_portal():
         for message in st.session_state.client_chat_history:
             with st.chat_message(message["role"], avatar=_chat_avatar(message["role"])):
                 st.markdown(message["content"])
+        if st.session_state.client_chat_history:
+            scroll_chat_to_bottom()
 
         if st.session_state.get("client_memory_warning"):
             st.warning(st.session_state.pop("client_memory_warning"))
@@ -2406,6 +2523,7 @@ Return valid JSON only in this exact shape:
         for message in st.session_state.chat_messages:
             with st.chat_message(message["role"], avatar=_chat_avatar(message["role"])):
                 st.markdown(message["content"])
+        scroll_chat_to_bottom()
 
 
 with client_vault_tab:
