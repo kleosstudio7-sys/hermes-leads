@@ -64,6 +64,31 @@ VAULT_PATH = Path("vault.json")
 HERMES_MEMORY_PATH = Path("hermes_memory.json")
 SECURITY_PATH = Path("security.json")
 CLIENT_TIER_LOG_PATH = Path("client_tier_log.json")
+LEADS_COOLDOWN_PATH = Path("leads_cooldowns.json")
+GOLD_LEADS_COOLDOWN_MINUTES = 25
+PLATINUM_LEADS_CAP = 50
+GOLD_LEADS_CAP = 10
+# Large national/public chains to filter out of lead results — the goal is
+# real, contactable local/small businesses, not corporations that happen to
+# have a branch in the searched city.
+LARGE_CHAIN_BLACKLIST = {
+    "walmart", "target", "starbucks", "mcdonald's", "mcdonalds", "home depot",
+    "lowe's", "lowes", "costco", "kroger", "walgreens", "cvs", "cvs pharmacy",
+    "best buy", "amazon", "whole foods", "trader joe's", "trader joes",
+    "subway", "burger king", "wendy's", "wendys", "chipotle", "dunkin",
+    "dunkin donuts", "dunkin' donuts", "7-eleven", "7 eleven", "aldi",
+    "publix", "safeway", "albertsons", "dollar general", "dollar tree",
+    "autozone", "o'reilly auto parts", "advance auto parts", "office depot",
+    "officemax", "staples", "petco", "petsmart", "ikea", "marshalls",
+    "tj maxx", "ross dress for less", "kohl's", "kohls", "macy's", "macys",
+    "jcpenney", "sam's club", "sams club", "bed bath & beyond", "big lots",
+    "family dollar", "rite aid", "verizon", "at&t", "t-mobile", "sprint",
+    "gamestop", "barnes & noble", "hobby lobby", "michaels", "ulta beauty",
+    "sephora", "panera bread", "chick-fil-a", "taco bell", "kfc",
+    "pizza hut", "domino's", "dominos", "papa john's", "papa johns",
+    "applebee's", "applebees", "olive garden", "denny's", "dennys",
+    "ihop", "shell", "chevron", "exxon", "bp", "circle k",
+}
 MAX_MEMORY_INTERACTIONS = 3
 MAX_MEMORY_CHARACTERS = 3000
 FIRST_LOCKOUT_MINUTES = 3
@@ -1655,86 +1680,267 @@ def render_login():
                     st.error("Invalid credentials, please try again")
 
 
-def fetch_local_business_leads(city, limit=10):
-    """Look up public business listings (name, phone, category) for a city
-    via SerpApi's Google Maps engine.
+def _is_large_chain(name):
+    lowered = (name or "").strip().casefold()
+    if not lowered:
+        return False
+    return any(chain in lowered for chain in LARGE_CHAIN_BLACKLIST)
 
-    This intentionally only surfaces businesses — organizations that have
-    published themselves on Google Maps specifically to be found by
-    customers — never private individuals. It does not query people-search
-    or data-broker sites. Returns (leads, error_message).
+
+def _clean_phone_number(raw_phone):
+    """Return a phone number only if it looks like a real, dialable number —
+    filters out empty/placeholder values that would otherwise show up as
+    fake-looking entries."""
+    digits = re.sub(r"\D", "", str(raw_phone or ""))
+    if len(digits) < 7:
+        return None
+    return str(raw_phone).strip()
+
+
+def fetch_local_business_leads(city, limit=10, pages=1):
+    """Look up real, local business listings (name, phone, category) for a
+    city via SerpApi's Google Maps engine.
+
+    This intentionally:
+      - Surfaces only businesses that have published themselves on Google
+        Maps specifically to be found by customers — never private
+        individuals, and never people-search/data-broker sites.
+      - Filters out large national/public chains (see LARGE_CHAIN_BLACKLIST)
+        so results are genuinely local, independent businesses.
+      - Requires a real, dialable phone number on the listing, so no
+        incomplete or placeholder entries are shown as if they were leads.
+      - De-duplicates by name+phone so repeated searches don't return the
+        same business twice within one request.
+
+    `pages` lets Platinum-tier requests pull more than one page of Google
+    Maps results (SerpApi paginates local_results ~20 per page) so a full
+    batch of up to PLATINUM_LEADS_CAP unique leads can be assembled.
+
+    Returns (leads, error_message).
     """
     if not SERPAPI_KEY:
         return [], "SerpApi key is not configured."
-    try:
-        response = requests.get(
-            "https://serpapi.com/search",
-            params={
-                "engine": "google_maps",
-                "q": f"businesses in {city}",
-                "type": "search",
-                "api_key": SERPAPI_KEY,
-            },
-            timeout=20,
-        )
-        response.raise_for_status()
-        data = response.json()
-    except requests.RequestException as error:
-        return [], f"Could not reach the leads service: {error}"
-    except ValueError as error:
-        return [], f"The leads service returned an unreadable response: {error}"
-
-    local_results = data.get("local_results", [])
-    if not local_results:
-        return [], None
 
     leads = []
-    for item in local_results[:limit]:
-        leads.append(
-            {
-                "Name": item.get("title", "Unknown Business"),
-                "Phone": item.get("phone", "No public number listed"),
-                "Type": item.get("type", "Local Business"),
-            }
-        )
+    seen = set()
+    start = 0
+    try:
+        for _ in range(max(1, pages)):
+            if len(leads) >= limit:
+                break
+            response = requests.get(
+                "https://serpapi.com/search",
+                params={
+                    "engine": "google_maps",
+                    "q": f"local businesses in {city}",
+                    "type": "search",
+                    "start": start,
+                    "api_key": SERPAPI_KEY,
+                },
+                timeout=20,
+            )
+            response.raise_for_status()
+            data = response.json()
+            local_results = data.get("local_results", [])
+            if not local_results:
+                break
+
+            for item in local_results:
+                if len(leads) >= limit:
+                    break
+                name = str(item.get("title", "")).strip()
+                phone = _clean_phone_number(item.get("phone"))
+                if not name or not phone:
+                    # No real contact number on the listing — skip rather
+                    # than show an incomplete/fake-looking entry.
+                    continue
+                if _is_large_chain(name):
+                    # Skip national/public chains — we want real local
+                    # business owners as clients' prospects, not corporations.
+                    continue
+                dedup_key = (name.casefold(), phone)
+                if dedup_key in seen:
+                    continue
+                seen.add(dedup_key)
+                leads.append(
+                    {
+                        "Name": name,
+                        "Phone": phone,
+                        "Type": item.get("type", "Local Business"),
+                    }
+                )
+
+            start += 20
+    except requests.RequestException as error:
+        if leads:
+            # Partial results already gathered before the connection issue —
+            # still return what was found rather than discarding it.
+            return leads, None
+        return [], f"Could not reach the leads service: {error}"
+    except ValueError as error:
+        if leads:
+            return leads, None
+        return [], f"The leads service returned an unreadable response: {error}"
+
     return leads, None
 
 
-def render_leads_tab(client_name, username, category="leads"):
-    """Gold-tier Leads tab.
+def load_leads_cooldowns():
+    if not LEADS_COOLDOWN_PATH.exists():
+        return {}
+    try:
+        data = json.loads(LEADS_COOLDOWN_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
 
-    The automatic lookup below only returns public *business* listings
-    (name, phone, category) from Google Maps via SerpApi — never private
-    individuals' personal information from people-search or data-broker
-    sites, which would raise real privacy and anti-spam problems. Clients
-    can also ask the founder directly for a hand-picked, personalized
-    batch; that request routes to the founder's Client Messages inbox.
+
+def save_leads_cooldowns(data):
+    LEADS_COOLDOWN_PATH.write_text(
+        json.dumps(data, indent=2, ensure_ascii=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def get_leads_cooldown_remaining_seconds(username):
+    """Strict, file-backed cooldown for the Gold tier — persists across
+    page refreshes and new sessions (not just session_state), keyed by the
+    client's login username."""
+    key = security_username_key(username)
+    data = load_leads_cooldowns()
+    last_search = parse_security_timestamp(data.get(key))
+    if not last_search:
+        return 0.0
+    elapsed = (datetime.now(timezone.utc) - last_search).total_seconds()
+    remaining = (GOLD_LEADS_COOLDOWN_MINUTES * 60) - elapsed
+    return max(0.0, remaining)
+
+
+def register_leads_search(username):
+    key = security_username_key(username)
+    data = load_leads_cooldowns()
+    data[key] = datetime.now(timezone.utc).isoformat()
+    save_leads_cooldowns(data)
+
+
+def format_cooldown_remaining(seconds):
+    minutes = int(seconds // 60)
+    secs = int(seconds % 60)
+    if minutes <= 0:
+        return f"{secs} sec left"
+    if secs == 0:
+        return f"{minutes} min left"
+    return f"{minutes} min {secs} sec left"
+
+
+def render_leads_tab(client_name, username, tier="gold", category="leads"):
+    """Leads tab, shared by Gold and Platinum with different rules:
+
+      - Gold: capped at GOLD_LEADS_CAP leads per search, and a strict
+        25-minute cooldown between searches (enforced server-side via a
+        file, so refreshing the page or starting a new session doesn't
+        bypass it). While on cooldown, a popup (st.toast) plus an on-page
+        countdown show the exact time remaining, and the search button is
+        disabled.
+      - Platinum: unlimited searches (no cooldown), capped at
+        PLATINUM_LEADS_CAP fresh, unique leads per request.
+
+    The automatic lookup below only returns real, local business listings
+    (name, phone, category) with a genuine phone number — filtered to
+    exclude large national/public chains and any listing without a working
+    contact number, so nothing shown is a fake or placeholder entry. Never
+    private individuals' personal information from people-search or
+    data-broker sites. Clients can also ask the founder directly for a
+    hand-picked, personalized batch; that request routes to the founder's
+    Client Messages inbox.
     """
+    is_platinum = (tier or "").lower() == "platinum"
+    lead_limit = PLATINUM_LEADS_CAP if is_platinum else GOLD_LEADS_CAP
+    lead_pages = 3 if is_platinum else 1
+
     unseen = has_unseen_founder_reply(client_name, username, category)
     st.subheader("Leads" + (" 🔵" if unseen else ""))
-    st.caption("Look up public business listings for a city, or ask for a fully personalized batch.")
+    if is_platinum:
+        st.caption(
+            f"Unlimited searches — each request returns up to {PLATINUM_LEADS_CAP} "
+            "fresh, unique local business leads."
+        )
+    else:
+        st.caption(
+            f"Look up up to {GOLD_LEADS_CAP} local business listings per search "
+            f"({GOLD_LEADS_COOLDOWN_MINUTES}-minute cooldown between searches), "
+            "or ask for a fully personalized batch."
+        )
+
+    cooldown_remaining = 0.0 if is_platinum else get_leads_cooldown_remaining_seconds(username)
+    if cooldown_remaining > 0:
+        remaining_text = format_cooldown_remaining(cooldown_remaining)
+        st.toast(f"⏳ Cooldown active — {remaining_text}", icon="⏳")
+        st.warning(
+            f"🔒 **Gold tier cooldown active — {remaining_text}.** "
+            "Upgrade to Platinum for unlimited searches."
+        )
 
     with st.form(f"leads_city_form_{category}", clear_on_submit=True):
         city = st.text_input("What is your city?", placeholder="e.g. Houston, TX")
-        request_city = st.form_submit_button("Find Leads", type="primary", use_container_width=True)
+        request_city = st.form_submit_button(
+            "Find Leads",
+            type="primary",
+            use_container_width=True,
+            disabled=cooldown_remaining > 0,
+        )
 
     if request_city:
-        if not city.strip():
+        if not is_platinum and get_leads_cooldown_remaining_seconds(username) > 0:
+            # Re-check right before running the search in case of a race
+            # (e.g. a second tab submitting at nearly the same time) —
+            # the cooldown must hold even if the button briefly rendered enabled.
+            remaining_text = format_cooldown_remaining(get_leads_cooldown_remaining_seconds(username))
+            st.toast(f"⏳ Cooldown active — {remaining_text}", icon="⏳")
+            st.error(f"🔒 Gold tier cooldown active — {remaining_text}. Please wait before searching again.")
+        elif not city.strip():
             st.warning("Enter a city before requesting leads.")
         else:
             target_city = city.strip()
-            with st.spinner(f"Looking up public business listings in {target_city}..."):
-                leads, fetch_error = fetch_local_business_leads(target_city)
+            if not is_platinum:
+                # Registered up front so the cooldown is strict even if the
+                # lookup itself fails or returns no results.
+                try:
+                    register_leads_search(username)
+                except OSError:
+                    pass
+
+            with st.spinner(f"Looking up real local business leads in {target_city}..."):
+                leads, fetch_error = fetch_local_business_leads(
+                    target_city, limit=lead_limit, pages=lead_pages
+                )
 
             if fetch_error:
                 st.error(fetch_error)
             elif not leads:
-                st.warning(f"No public business listings were found for '{target_city}'. Try a nearby city or a broader area.")
+                st.warning(
+                    f"No verified local business listings with a real phone number were "
+                    f"found for '{target_city}'. Try a nearby city or a broader area."
+                )
             else:
-                st.success(f"Found {len(leads)} public business listings in {target_city}.")
+                st.success(f"Found {len(leads)} verified, local business leads in {target_city}.")
                 st.dataframe(leads, use_container_width=True, hide_index=True)
+                st.caption(
+                    "⚖️ **Compliance notice:** These leads are pulled from public business "
+                    "directory listings and are not pre-screened for calling/texting consent. "
+                    "Before contacting any business, confirm compliance with the TCPA, the "
+                    "CAN-SPAM Act, applicable Do-Not-Call registries, and any state or local "
+                    "telemarketing laws. KleOs does not guarantee the accuracy, currency, or "
+                    "consent status of any listed contact information, and is not responsible "
+                    "for how these leads are used."
+                )
+                if not is_platinum:
+                    st.caption(
+                        f"🔒 Next search available in {GOLD_LEADS_COOLDOWN_MINUTES} minutes "
+                        "(Gold tier cooldown)."
+                    )
 
-            maps_query = urllib.parse.quote_plus(f"businesses in {target_city}")
+            maps_query = urllib.parse.quote_plus(f"local businesses in {target_city}")
             st.link_button(
                 f"🌐 Open {target_city} on Google Maps",
                 f"https://www.google.com/maps/search/{maps_query}",
@@ -1946,31 +2152,20 @@ sharp, encouraging strategist, not a customer-service bot. You genuinely
 know this client's business and talk like it.
 
 PERSONALITY
-Warm, human, and easygoing — like a trusted advisor who knows this client,
-not a corporate assistant and not a robot reciting facts at them. Talk the
-way a real person would in a normal conversation.
+Warm and human, but with real substance and opinions — not saccharine or
+generic. Get to the point, then add color or encouragement where it's
+earned, not by default.
 
-GREETINGS AND SMALL TALK
-If the client just says "hi," "hey," "how's it going," or similar small
-talk, respond like a person would — a short, warm, natural greeting. Use
-their name sometimes, not every time. Vary it naturally instead of
-repeating the same line — for example: "Hi {client_name}, how's your day
-been?", "Hey, good to see you — what do you need help with today?", "Hi
-{client_name}, ready when you are — what are we working on?", "Hey there,
-how's everything going on your end?" Do NOT bring up their business
-problems, goals, or Vault details unprompted just because they said hi.
-Only get into their situation, issues, or strategy once they actually ask
-about it or bring it up themselves.
+BANNED — never open with, or use, any of these or their close variants:
+"Hey there!", "Hi there!", "How can I help you today?", "I'd be happy to
+help!", "Great question!", "I'm here to assist." These are stock chatbot
+filler and instantly break the illusion that you actually know this
+client. If the client just says hi, respond like someone who already knows
+them and their business would — reference their actual goal or situation
+from the Vault details below instead of asking a generic open-ended
+question.
 
 No decorative emoji. No restating the question back before answering.
-
-ANSWER ONLY WHAT'S ASKED
-Respond only to what the client actually asked or said in their message.
-Don't jump ahead into unsolicited advice, diagnoses, or next steps they
-didn't ask for. If they ask something small, answer that small thing. If
-they ask a real business question (e.g. "how do I fix my business," "what
-should I focus on"), that's when you draw on the Vault details and memory
-below to give a grounded, specific answer.
 
 LENGTH — NON-NEGOTIABLE
 Match your reply to what was actually asked. A quick question gets a quick
@@ -2080,7 +2275,7 @@ weren't given.
 
     if leads_tab is not None:
         with leads_tab:
-            render_leads_tab(client_name, username)
+            render_leads_tab(client_name, username, tier=effective_tier)
 
     if emails_tab is not None:
         with emails_tab:
