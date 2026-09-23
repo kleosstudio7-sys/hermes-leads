@@ -65,6 +65,8 @@ HERMES_MEMORY_PATH = Path("hermes_memory.json")
 SECURITY_PATH = Path("security.json")
 CLIENT_TIER_LOG_PATH = Path("client_tier_log.json")
 LEADS_COOLDOWN_PATH = Path("leads_cooldowns.json")
+LEADS_HISTORY_PATH = Path("leads_history.json")
+LEADS_AGREEMENTS_PATH = Path("leads_agreements.json")
 GOLD_LEADS_COOLDOWN_MINUTES = 25
 PLATINUM_LEADS_CAP = 50
 GOLD_LEADS_CAP = 10
@@ -1697,7 +1699,7 @@ def _clean_phone_number(raw_phone):
     return str(raw_phone).strip()
 
 
-def fetch_local_business_leads(city, limit=10, pages=1):
+def fetch_local_business_leads(city, limit=10, exclude=None, max_pages=4):
     """Look up real, local business listings (name, phone, category) for a
     city via SerpApi's Google Maps engine.
 
@@ -1711,21 +1713,30 @@ def fetch_local_business_leads(city, limit=10, pages=1):
         incomplete or placeholder entries are shown as if they were leads.
       - De-duplicates by name+phone so repeated searches don't return the
         same business twice within one request.
+      - Skips anything in `exclude` (a set of (name_casefold, phone) pairs
+        already shown to this client for this city before) and keeps
+        paging through further results to find fresh ones instead — this
+        is what makes repeat searches for the same city return different
+        businesses instead of the identical list every time.
 
-    `pages` lets Platinum-tier requests pull more than one page of Google
-    Maps results (SerpApi paginates local_results ~20 per page) so a full
-    batch of up to PLATINUM_LEADS_CAP unique leads can be assembled.
+    `max_pages` lets Platinum-tier requests scan further into Google Maps'
+    results (SerpApi paginates local_results ~20 per page) so a full batch
+    of up to PLATINUM_LEADS_CAP fresh, unique leads can be assembled.
 
-    Returns (leads, error_message).
+    Returns (leads, error_message, ran_out_of_results). `ran_out_of_results`
+    is True when Google Maps had no more listings left to scan (as opposed
+    to simply not having filled `limit` yet).
     """
     if not SERPAPI_KEY:
-        return [], "SerpApi key is not configured."
+        return [], "SerpApi key is not configured.", False
 
+    exclude = exclude or set()
     leads = []
     seen = set()
     start = 0
+    ran_out = False
     try:
-        for _ in range(max(1, pages)):
+        for _ in range(max(1, max_pages)):
             if len(leads) >= limit:
                 break
             response = requests.get(
@@ -1743,6 +1754,7 @@ def fetch_local_business_leads(city, limit=10, pages=1):
             data = response.json()
             local_results = data.get("local_results", [])
             if not local_results:
+                ran_out = True
                 break
 
             for item in local_results:
@@ -1762,6 +1774,10 @@ def fetch_local_business_leads(city, limit=10, pages=1):
                 if dedup_key in seen:
                     continue
                 seen.add(dedup_key)
+                if dedup_key in exclude:
+                    # Already shown to this client on an earlier search of
+                    # this city — skip so this search surfaces something new.
+                    continue
                 leads.append(
                     {
                         "Name": name,
@@ -1775,14 +1791,14 @@ def fetch_local_business_leads(city, limit=10, pages=1):
         if leads:
             # Partial results already gathered before the connection issue —
             # still return what was found rather than discarding it.
-            return leads, None
-        return [], f"Could not reach the leads service: {error}"
+            return leads, None, ran_out
+        return [], f"Could not reach the leads service: {error}", ran_out
     except ValueError as error:
         if leads:
-            return leads, None
-        return [], f"The leads service returned an unreadable response: {error}"
+            return leads, None, ran_out
+        return [], f"The leads service returned an unreadable response: {error}", ran_out
 
-    return leads, None
+    return leads, None, ran_out
 
 
 def load_leads_cooldowns():
