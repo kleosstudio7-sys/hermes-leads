@@ -1927,8 +1927,8 @@ def render_leads_tab(client_name, username, tier="gold", category="leads"):
                     pass
 
             with st.spinner(f"Looking up real local business leads in {target_city}..."):
-                leads, fetch_error, ran_out_of_results = fetch_local_business_leads(
-                    target_city, limit=lead_limit, max_pages=lead_pages
+                leads, fetch_error = fetch_local_business_leads(
+                    target_city, limit=lead_limit, pages=lead_pages
                 )
 
             if fetch_error:
