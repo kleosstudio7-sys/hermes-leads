@@ -1801,6 +1801,51 @@ def fetch_local_business_leads(city, limit=10, exclude=None, max_pages=4):
     return leads, None, ran_out
 
 
+def load_leads_history():
+    if not LEADS_HISTORY_PATH.exists():
+        return {}
+    try:
+        data = json.loads(LEADS_HISTORY_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def save_leads_history(data):
+    LEADS_HISTORY_PATH.write_text(
+        json.dumps(data, indent=2, ensure_ascii=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _leads_history_key(username, city):
+    return f"{security_username_key(username)}::{city.strip().casefold()}"
+
+
+def get_shown_lead_keys(username, city):
+    """Every (name_casefold, phone) pair already shown to this client for
+    this city on a previous search — used to exclude them so a repeat
+    search surfaces fresh businesses instead of the same list again."""
+    data = load_leads_history()
+    entries = data.get(_leads_history_key(username, city), [])
+    return {tuple(pair) for pair in entries if isinstance(pair, list) and len(pair) == 2}
+
+
+def record_shown_leads(username, city, leads):
+    data = load_leads_history()
+    key = _leads_history_key(username, city)
+    existing = data.get(key, [])
+    existing_set = {tuple(pair) for pair in existing if isinstance(pair, list) and len(pair) == 2}
+    for lead in leads:
+        pair = (lead["Name"].casefold(), lead["Phone"])
+        if pair not in existing_set:
+            existing.append([lead["Name"].casefold(), lead["Phone"]])
+            existing_set.add(pair)
+    # Cap history length per (client, city) so the file doesn't grow forever.
+    data[key] = existing[-400:]
+    save_leads_history(data)
+
+
 def load_leads_cooldowns():
     if not LEADS_COOLDOWN_PATH.exists():
         return {}
@@ -1926,21 +1971,54 @@ def render_leads_tab(client_name, username, tier="gold", category="leads"):
                 except OSError:
                     pass
 
+            # Exclude every business already shown to this client for this
+            # city on an earlier search, so repeat searches — whether it's
+            # Gold right after the cooldown clears, or Platinum searching
+            # the same city again same-day or a week later — surface fresh
+            # businesses instead of the identical list every time. Scanning
+            # further into the results (higher max_pages) gives room to
+            # skip past everything already seen and still fill the quota.
+            already_shown = get_shown_lead_keys(username, target_city)
+            scan_pages = (lead_pages + 4) if is_platinum else (lead_pages + 5)
+
             with st.spinner(f"Looking up real local business leads in {target_city}..."):
-                leads, fetch_error = fetch_local_business_leads(
-                    target_city, limit=lead_limit, pages=lead_pages
+                leads, fetch_error, ran_out_of_results = fetch_local_business_leads(
+                    target_city,
+                    limit=lead_limit,
+                    exclude=already_shown,
+                    max_pages=scan_pages,
                 )
+
+            if leads:
+                try:
+                    record_shown_leads(username, target_city, leads)
+                except OSError:
+                    pass
 
             if fetch_error:
                 st.error(fetch_error)
             elif not leads:
-                st.warning(
-                    f"No verified local business listings with a real phone number were "
-                    f"found for '{target_city}'. Try a nearby city or a broader area."
-                )
+                if already_shown:
+                    st.warning(
+                        f"You've already been shown every currently available local "
+                        f"business lead we can verify for '{target_city}'. Check back "
+                        "later as new businesses get listed on Google Maps, or try a "
+                        "nearby city."
+                    )
+                else:
+                    st.warning(
+                        f"No verified local business listings with a real phone number were "
+                        f"found for '{target_city}'. Try a nearby city or a broader area."
+                    )
             else:
-                st.success(f"Found {len(leads)} verified, local business leads in {target_city}.")
+                st.success(f"Found {len(leads)} fresh, verified local business leads in {target_city}.")
                 st.dataframe(leads, use_container_width=True, hide_index=True)
+                if ran_out_of_results and len(leads) < lead_limit:
+                    st.caption(
+                        f"Showing all {len(leads)} fresh leads currently available for "
+                        f"{target_city} — fewer than the {lead_limit} requested, since "
+                        "you've already been shown the rest before."
+                    )
                 st.caption(
                     "⚖️ **Compliance notice:** These leads are pulled from public business "
                     "directory listings and are not pre-screened for calling/texting consent. "
