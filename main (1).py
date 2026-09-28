@@ -1,7 +1,3 @@
-Gmail	Kleos <kleosstudio7@gmail.com>
-update just in case 09/27/26
-Kleos <kleosstudio7@gmail.com>	Sun, Sep 27, 2026 at 12:01 PM
-To: Kleos <kleosstudio7@gmail.com>
 import base64
 import io
 import json
