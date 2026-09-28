@@ -30,7 +30,7 @@ GROQ_API_KEY = os.getenv(
 # --- Separate security passcode for the founder-only Client Tiers panel.
 # This is intentionally NOT the admin password and NOT any client password. ---
 CLIENT_TIER_PASSCODE = "jg1249"
-CLIENT_TIER_OPTIONS = ("Regular", "Gold", "Platinum")
+CLIENT_TIER_OPTIONS = ("Regular", "Gold", "diamond")
 
 # --- Chat avatars: circular crops of the founder's own supplied artwork
 # (Zeus-style medallion for HERMES, classical profile bust for the
@@ -994,7 +994,11 @@ def find_saved_client(username, password):
 def get_client_tier(record):
     """Normalize a saved client's tier. Anything unset/unrecognized is Regular."""
     tier = str((record or {}).get("tier", "")).strip().lower()
-    return tier if tier in {"gold", "platinum"} else "regular"
+    if tier in {"diamond", "platinum"}:
+        return "diamond"
+    if tier == "gold":
+        return "gold"
+    return "regular"
 
 
 def load_founder_client_login():
@@ -2205,15 +2209,14 @@ def render_client_portal():
     if "client_chat_history" not in st.session_state:
         st.session_state.client_chat_history = []
 
-    tab_labels = ["💬 Chat with HERMES", "📥 Messages from Founder", "✉️ Ask Founder"]
-    if effective_tier in ("gold", "platinum"):
+        tab_labels = ["💬 Chat with HERMES", "📥 Messages from Founder", "✉️ Ask Founder"]
+    if effective_tier in ("gold", "diamond"):
         tab_labels += ["🎯 Leads", "📧 Emails"]
 
     tabs = st.tabs(tab_labels)
     chat_tab, inbox_tab, ask_tab = tabs[0], tabs[1], tabs[2]
-    leads_tab = tabs[3] if effective_tier in ("gold", "platinum") else None
-    emails_tab = tabs[4] if effective_tier in ("gold", "platinum") else None
-
+    leads_tab = tabs[3] if effective_tier in ("gold", "diamond") else None
+    emails_tab = tabs[4] if effective_tier in ("gold", "diamond") else None
     with chat_tab:
         for message in st.session_state.client_chat_history:
             with st.chat_message(message["role"], avatar=_chat_avatar(message["role"])):
