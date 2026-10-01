@@ -1973,60 +1973,60 @@ def render_leads_tab(client_name, username, tier="gold", category="leads"):
                 except OSError:
                     pass
                     def fetch_local_leads(target_city, limit=10, exclude_already_shown=None, max_pages_scan=1):
-    import requests
-    
-    # YOUR RECENTLY COPIED APOLLO MASTER KEY GOES HERE
-    api_key = "WRoe97eSeh_ZtvbQshj8lQ"
-    
-    url = "https://apollo.io"
-    headers = {
-        "Cache-Control": "no-cache",
-        "Content-Type": "application/json",
-        "X-Api-Key": api_key
-    }
-    
-    payload = {
-        "q_organization_keyword_tags": [],
-        "person_locations": [target_city],
-        "person_titles": ["owner", "founder", "ceo", "president", "co-founder"],
-        "page": 1,
-        "per_page": limit
-    }
-    
-    try:
-        response = requests.post(url, json=payload, headers=headers, timeout=15)
-        if response.status_code == 200:
-            data = response.json()
-            leads_list = []
-            
-            for person in data.get("people", []):
-                first_name = person.get("first_name", "")
-                last_name = person.get("last_name", "")
-                full_name = f"{first_name} {last_name}".strip() or "Unknown Contact"
+        import requests
+        
+        # YOUR RECENTLY COPIED APOLLO MASTER KEY GOES HERE
+        api_key = "WRoe97eSeh_ZtvbQshj8lQ"
+        
+        url = "https://apollo.io"
+        headers = {
+            "Cache-Control": "no-cache",
+            "Content-Type": "application/json",
+            "X-Api-Key": api_key
+        }
+        
+        payload = {
+            "q_organization_keyword_tags": [],
+            "person_locations": [target_city],
+            "person_titles": ["owner", "founder", "ceo", "president", "co-founder"],
+            "page": 1,
+            "per_page": limit
+        }
+        
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=15)
+            if response.status_code == 200:
+                data = response.json()
+                leads_list = []
                 
-                # Pulls direct corporate email or verified email address
-                email = person.get("email", "No Email Available")
+                for person in data.get("people", []):
+                    first_name = person.get("first_name", "")
+                    last_name = person.get("last_name", "")
+                    full_name = f"{first_name} {last_name}".strip() or "Unknown Contact"
+                    
+                    # Pulls direct corporate email or verified email address
+                    email = person.get("email", "No Email Available")
+                    
+                    # Pulls corporate direct line or mobile/cell number if available
+                    phone = person.get("sanitized_phone", person.get("phone", "No Phone Available"))
+                    
+                    company_name = person.get("organization", {}).get("name", "Local Business")
+                    title = person.get("title", "Owner").title()
+                    
+                    leads_list.append({
+                        "Name": full_name,
+                        "Phone": phone,
+                        "Email": email,
+                        "Company": company_name,
+                        "Title": title
+                    })
                 
-                # Pulls corporate direct line or mobile/cell number if available
-                phone = person.get("sanitized_phone", person.get("phone", "No Phone Available"))
+                return leads_list, None, False
+            else:
+                return [], f"Data stream error: {response.status_code}", False
                 
-                company_name = person.get("organization", {}).get("name", "Local Business")
-                title = person.get("title", "Owner").title()
-                
-                leads_list.append({
-                    "Name": full_name,
-                    "Phone": phone,
-                    "Email": email,
-                    "Company": company_name,
-                    "Title": title
-                })
-            
-            return leads_list, None, False
-        else:
-            return [], f"Data stream error: {response.status_code}", False
-            
-    except Exception as e:
-        return [], f"Connection error: {str(e)}", False
+        except Exception as e:
+            return [], f"Connection error: {str(e)}", False
 
 
             # Exclude every business already shown to this client for this
